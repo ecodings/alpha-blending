@@ -555,32 +555,34 @@
             tempCtx.drawImage(img, 0, 0, width, height);
             
             if (type === 'A') {
+                canvasA.width = width;
+                canvasA.height = height;
+                ctxA.drawImage(tempCanvas, 0, 0);
+                imageDataA = ctxA.getImageData(0, 0, width, height);
+                
                 if (imageDataB) {
                     // B가 이미 있으면 크기 맞추기
-                    adjustSizes(width, height, commonWidth, commonHeight);
+                    adjustSizes();
                 } else {
                     commonWidth = width;
                     commonHeight = height;
-                    canvasA.width = width;
-                    canvasA.height = height;
-                    ctxA.drawImage(tempCanvas, 0, 0);
-                    imageDataA = ctxA.getImageData(0, 0, width, height);
                 }
                 
                 document.getElementById('canvasA').style.display = 'block';
                 document.getElementById('placeholderA').style.display = 'none';
                 document.getElementById('wrapperA').classList.remove('empty');
             } else {
+                canvasB.width = width;
+                canvasB.height = height;
+                ctxB.drawImage(tempCanvas, 0, 0);
+                imageDataB = ctxB.getImageData(0, 0, width, height);
+                
                 if (imageDataA) {
                     // A가 이미 있으면 크기 맞추기
-                    adjustSizes(commonWidth, commonHeight, width, height);
+                    adjustSizes();
                 } else {
                     commonWidth = width;
                     commonHeight = height;
-                    canvasB.width = width;
-                    canvasB.height = height;
-                    ctxB.drawImage(tempCanvas, 0, 0);
-                    imageDataB = ctxB.getImageData(0, 0, width, height);
                 }
                 
                 document.getElementById('canvasB').style.display = 'block';
@@ -592,8 +594,13 @@
                 updateBlending();
             }
         }
-        
-        function adjustSizes(widthA, heightA, widthB, heightB) {
+        function adjustSizes() {
+            // 두 이미지의 현재 크기 가져오기
+            const widthA = canvasA.width;
+            const heightA = canvasA.height;
+            const widthB = canvasB.width;
+            const heightB = canvasB.height;
+            
             // 작은 쪽에 맞춰서 center crop
             commonWidth = Math.min(widthA, widthB);
             commonHeight = Math.min(heightA, heightB);
@@ -603,7 +610,7 @@
             const tempCtxA = tempA.getContext('2d');
             tempA.width = widthA;
             tempA.height = heightA;
-            tempCtxA.putImageData(imageDataA || ctxA.getImageData(0, 0, widthA, heightA), 0, 0);
+            tempCtxA.putImageData(imageDataA, 0, 0);
             
             const cropXA = Math.floor((widthA - commonWidth) / 2);
             const cropYA = Math.floor((heightA - commonHeight) / 2);
@@ -618,7 +625,7 @@
             const tempCtxB = tempB.getContext('2d');
             tempB.width = widthB;
             tempB.height = heightB;
-            tempCtxB.putImageData(imageDataB || ctxB.getImageData(0, 0, widthB, heightB), 0, 0);
+            tempCtxB.putImageData(imageDataB, 0, 0);
             
             const cropXB = Math.floor((widthB - commonWidth) / 2);
             const cropYB = Math.floor((heightB - commonHeight) / 2);
