@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>알파 블랜딩으로 이미지 합성하기</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f4d03f 0%, #c39d2e 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+        
+        .images-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .image-box {
+            text-align: center;
+        }
+        
+        .image-box h3 {
+            margin-bottom: 15px;
+            color: #555;
+        }
+        
+        .button-group {
+            margin-bottom: 15px;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #f4d03f 0%, #c39d2e 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 0 5px;
+            transition: all 0.3s;
+        }
+        
+        .btn:hover {
+            background: linear-gradient(135deg, #e6c235 0%, #b58d28 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(195, 157, 46, 0.4);
+        }
+        
+        .btn-reset {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+        }
+        
+        .btn-reset:hover {
+            background: linear-gradient(135deg, #d44332 0%, #a93226 100%);
+        }
+        
+        input[type="file"] {
+            display: none;
+        }
+        
+        .canvas-wrapper {
+            position: relative;
+            border: 3px solid #ddd;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #f5f5f5;
+            min-height: 300px;
+            width: 100%;
+        }
+        
+        .canvas-wrapper.empty {
+            background: repeating-linear-gradient(
+                45deg,
+                #f0f0f0,
+                #f0f0f0 10px,
+                #e0e0e0 10px,
+                #e0e0e0 20px
+            );
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .canvas-wrapper canvas {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+        
+        .placeholder {
+            color: #999;
+            font-size: 14px;
+            padding: 20px;
+        }
+        
+        canvas {
+            cursor: crosshair;
+        }
+        
+        .selection-box {
+            position: absolute;
+            border: 3px solid #f4d03f;
+            pointer-events: none;
+            box-shadow: 0 0 10px rgba(244, 208, 63, 0.6);
+            display: none;
+        }
+        
+        .slider-section {
+            background: #fffef5;
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            border: 2px solid #f4d03f;
+        }
+        
+        .slider-container {
+            margin: 20px 0;
+        }
+        
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 8px;
+            border-radius: 5px;
+            background: #f4d03f;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #f4d03f 0%, #c39d2e 100%);
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #f4d03f 0%, #c39d2e 100%);
+            cursor: pointer;
+            border: none;
+        }
+        
+        .formula {
+            text-align: center;
+            font-size: 18px;
+            color: #c39d2e;
+            font-weight: bold;
+            margin-top: 15px;
+        }
+        
+        .matrix-section {
+            background: #fffef5;
+            padding: 25px;
+            border-radius: 15px;
+            border: 2px solid #f4d03f;
+        }
+        
+        .matrix-section h3 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .matrix-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .matrix-column {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .matrix-column h4 {
+            text-align: center;
+            color: #555;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        
+        .matrix-box {
+            background: white;
+            padding: 12px;
+            border-radius: 10px;
+            border: 2px solid #ddd;
+        }
+        
+        .matrix-box.r-channel {
+            border-color: #ffcdd2;
+        }
+        
+        .matrix-box.g-channel {
+            border-color: #c8e6c9;
+        }
+        
+        .matrix-box.b-channel {
+            border-color: #bbdefb;
+        }
+        
+        .matrix-box h5 {
+            margin-bottom: 8px;
+            color: #555;
+            font-size: 13px;
+            font-weight: bold;
+            text-align: center;
+        }
+        
+        .matrix-box.r-channel h5 {
+            color: #d32f2f;
+        }
+        
+        .matrix-box.g-channel h5 {
+            color: #388e3c;
+        }
+        
+        .matrix-box.b-channel h5 {
+            color: #1976d2;
+        }
+        
+        .matrix-table {
+            font-family: 'Courier New', monospace;
+            font-size: 9px;
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .matrix-table td {
+            padding: 4px 2px;
+            text-align: center;
+            border: 1px solid #e0e0e0;
+            background: #fafafa;
+            word-break: break-all;
+        }
+        
+        .matrix-table td.center-cell {
+            background: #fff9c4;
+            font-weight: bold;
+            border: 2px solid #fbc02d;
+        }
+        
+        .info-box {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+        
+        .info-box strong {
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 알파 블랜딩으로 이미지 합성하기</h1>
+        
+        <div class="images-container">
+            <div class="image-box">
+                <h3>이미지 A</h3>
+                <div class="button-group">
+                    <input type="file" id="imageInputA" accept="image/*">
+                    <button class="btn" onclick="document.getElementById('imageInputA').click()">
+                        📁 업로드
+                    </button>
+                    <button class="btn" onclick="loadSampleA()">
+                        🖼️ 샘플 A
+                    </button>
+                </div>
+                <div class="canvas-wrapper empty" id="wrapperA">
+                    <canvas id="canvasA" style="display: none;"></canvas>
+                    <div class="selection-box" id="selectionBoxA"></div>
+                    <div class="placeholder" id="placeholderA">이미지를 업로드하세요</div>
+                </div>
+            </div>
+            
+            <div class="image-box">
+                <h3>블랜딩 이미지</h3>
+                <div class="button-group">
+                    <button class="btn btn-reset" onclick="resetAll()">
+                        🔄 초기화
+                    </button>
+                </div>
+                <div class="canvas-wrapper empty" id="wrapperBlend">
+                    <canvas id="canvasBlend" style="display: none;"></canvas>
+                    <div class="selection-box" id="selectionBoxBlend"></div>
+                    <div class="placeholder" id="placeholderBlend">두 이미지를 업로드하세요</div>
+                </div>
+            </div>
+            
+            <div class="image-box">
+                <h3>이미지 B</h3>
+                <div class="button-group">
+                    <input type="file" id="imageInputB" accept="image/*">
+                    <button class="btn" onclick="document.getElementById('imageInputB').click()">
+                        📁 업로드
+                    </button>
+                    <button class="btn" onclick="loadSampleB()">
+                        🖼️ 샘플 B
+                    </button>
+                </div>
+                <div class="canvas-wrapper empty" id="wrapperB">
+                    <canvas id="canvasB" style="display: none;"></canvas>
+                    <div class="selection-box" id="selectionBoxB"></div>
+                    <div class="placeholder" id="placeholderB">이미지를 업로드하세요</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="slider-section">
+            <div class="slider-container">
+                <div class="slider-label">
+                    <span>알파(α) 값:</span>
+                    <span id="alphaValue">0.5</span>
+                </div>
+                <input type="range" id="alphaSlider" min="0" max="10" value="5" step="1">
+                <div style="display: flex; justify-content: space-between; font-size: 11px; color: #666; margin-top: 5px; padding: 0 2px;">
+                    <span>0.0</span>
+                    <span>0.1</span>
+                    <span>0.2</span>
+                    <span>0.3</span>
+                    <span>0.4</span>
+                    <span>0.5</span>
+                    <span>0.6</span>
+                    <span>0.7</span>
+                    <span>0.8</span>
+                    <span>0.9</span>
+                    <span>1.0</span>
+                </div>
+            </div>
+            <div class="formula" id="formula">
+                수식: 블랜딩 = α × 이미지A + (1-α) × 이미지B
+            </div>
+        </div>
+        
+        <div class="matrix-section">
+            <h3>📊 선택된 픽셀의 3×5 영역 (중앙 열에 계산식 표시)</h3>
+            <p style="color: #666; margin-bottom: 15px;">
+                💡 이미지를 클릭하면 해당 픽셀을 중심으로 3×5 영역의 RGB 값과 블랜딩 계산을 확인할 수 있습니다.
+            </p>
+            
+            <div class="matrix-grid">
+                <div class="matrix-column">
+                    <h4>이미지 A</h4>
+                    <div class="matrix-box r-channel">
+                        <h5>R 채널</h5>
+                        <table class="matrix-table" id="matrixAR"></table>
+                    </div>
+                    <div class="matrix-box g-channel">
+                        <h5>G 채널</h5>
+                        <table class="matrix-table" id="matrixAG"></table>
+                    </div>
+                    <div class="matrix-box b-channel">
+                        <h5>B 채널</h5>
+                        <table class="matrix-table" id="matrixAB"></table>
+                    </div>
+                </div>
+                
+                <div class="matrix-column">
+                    <h4>블랜딩 결과</h4>
+                    <div class="matrix-box r-channel">
+                        <h5>R 채널</h5>
+                        <table class="matrix-table" id="matrixBlendR"></table>
+                    </div>
+                    <div class="matrix-box g-channel">
+                        <h5>G 채널</h5>
+                        <table class="matrix-table" id="matrixBlendG"></table>
+                    </div>
+                    <div class="matrix-box b-channel">
+                        <h5>B 채널</h5>
+                        <table class="matrix-table" id="matrixBlendB"></table>
+                    </div>
+                </div>
+                
+                <div class="matrix-column">
+                    <h4>이미지 B</h4>
+                    <div class="matrix-box r-channel">
+                        <h5>R 채널</h5>
+                        <table class="matrix-table" id="matrixBR"></table>
+                    </div>
+                    <div class="matrix-box g-channel">
+                        <h5>G 채널</h5>
+                        <table class="matrix-table" id="matrixBG"></table>
+                    </div>
+                    <div class="matrix-box b-channel">
+                        <h5>B 채널</h5>
+                        <table class="matrix-table" id="matrixBB"></table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let imageDataA = null;
+        let imageDataB = null;
+        let selectedX = null;
+        let selectedY = null;
+        let commonWidth = 0;
+        let commonHeight = 0;
+        const boxWidth = 3;
+        const boxHeight = 5;
+        
+        const canvasA = document.getElementById('canvasA');
+        const canvasB = document.getElementById('canvasB');
+        const canvasBlend = document.getElementById('canvasBlend');
+        const ctxA = canvasA.getContext('2d');
+        const ctxB = canvasB.getContext('2d');
+        const ctxBlend = canvasBlend.getContext('2d');
+        const slider = document.getElementById('alphaSlider');
+        
+        // 초기화
+        function resetAll() {
+            imageDataA = null;
+            imageDataB = null;
+            selectedX = null;
+            selectedY = null;
+            
+            ['canvasA', 'canvasB', 'canvasBlend'].forEach(id => {
+                document.getElementById(id).style.display = 'none';
+            });
+            
+            ['placeholderA', 'placeholderB', 'placeholderBlend'].forEach(id => {
+                document.getElementById(id).style.display = 'block';
+            });
+            
+            ['wrapperA', 'wrapperB', 'wrapperBlend'].forEach(id => {
+                document.getElementById(id).classList.add('empty');
+            });
+            
+            ['selectionBoxA', 'selectionBoxB', 'selectionBoxBlend'].forEach(id => {
+                document.getElementById(id).style.display = 'none';
+            });
+            
+            slider.value = 5;
+            document.getElementById('alphaValue').textContent = '0.5';
+            
+            ['AR', 'AG', 'AB', 'BlendR', 'BlendG', 'BlendB', 'BR', 'BG', 'BB'].forEach(id => {
+                document.getElementById('matrix' + id).innerHTML = '';
+            });
+            
+            document.getElementById('imageInputA').value = '';
+            document.getElementById('imageInputB').value = '';
+        }
+        
+        // 이미지 A 업로드
+        document.getElementById('imageInputA').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const img = new Image();
+                    img.onload = function() {
+                        loadImageA(img);
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+        
+        // 이미지 B 업로드
+        document.getElementById('imageInputB').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const img = new Image();
+                    img.onload = function() {
+                        loadImageB(img);
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+        
+        // 샘플 이미지 로드
+        function loadSampleA() {
+            const img = new Image();
+            img.onload = function() {
+                loadImageA(img);
+            };
+            img.src = 'sampleA.jpg';
+        }
+        
+        function loadSampleB() {
+            const img = new Image();
+            img.onload = function() {
+                loadImageB(img);
+            };
+            img.src = 'sampleB.jpg';
+        }
+        
+        function loadImageA(img) {
+            processImage(img, 'A');
+        }
+        
+        function loadImageB(img) {
+            processImage(img, 'B');
+        }
+        
+        function processImage(img, type) {
+            const maxWidth = 400;
+            const scale = Math.min(1, maxWidth / img.width);
+            const width = Math.floor(img.width * scale);
+            const height = Math.floor(img.height * scale);
+            
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCanvas.width = width;
+            tempCanvas.height = height;
+            tempCtx.drawImage(img, 0, 0, width, height);
+            
+            if (type === 'A') {
+                if (imageDataB) {
+                    // B가 이미 있으면 크기 맞추기
+                    adjustSizes(width, height, commonWidth, commonHeight);
+                } else {
+                    commonWidth = width;
+                    commonHeight = height;
+                    canvasA.width = width;
+                    canvasA.height = height;
+                    ctxA.drawImage(tempCanvas, 0, 0);
+                    imageDataA = ctxA.getImageData(0, 0, width, height);
+                }
+                
+                document.getElementById('canvasA').style.display = 'block';
+                document.getElementById('placeholderA').style.display = 'none';
+                document.getElementById('wrapperA').classList.remove('empty');
+            } else {
+                if (imageDataA) {
+                    // A가 이미 있으면 크기 맞추기
+                    adjustSizes(commonWidth, commonHeight, width, height);
+                } else {
+                    commonWidth = width;
+                    commonHeight = height;
+                    canvasB.width = width;
+                    canvasB.height = height;
+                    ctxB.drawImage(tempCanvas, 0, 0);
+                    imageDataB = ctxB.getImageData(0, 0, width, height);
+                }
+                
+                document.getElementById('canvasB').style.display = 'block';
+                document.getElementById('placeholderB').style.display = 'none';
+                document.getElementById('wrapperB').classList.remove('empty');
+            }
+            
+            if (imageDataA && imageDataB) {
+                updateBlending();
+            }
+        }
+        
+        function adjustSizes(widthA, heightA, widthB, heightB) {
+            // 작은 쪽에 맞춰서 center crop
+            commonWidth = Math.min(widthA, widthB);
+            commonHeight = Math.min(heightA, heightB);
+            
+            // 이미지 A 재조정
+            const tempA = document.createElement('canvas');
+            const tempCtxA = tempA.getContext('2d');
+            tempA.width = widthA;
+            tempA.height = heightA;
+            tempCtxA.putImageData(imageDataA || ctxA.getImageData(0, 0, widthA, heightA), 0, 0);
+            
+            const cropXA = Math.floor((widthA - commonWidth) / 2);
+            const cropYA = Math.floor((heightA - commonHeight) / 2);
+            
+            canvasA.width = commonWidth;
+            canvasA.height = commonHeight;
+            ctxA.drawImage(tempA, cropXA, cropYA, commonWidth, commonHeight, 0, 0, commonWidth, commonHeight);
+            imageDataA = ctxA.getImageData(0, 0, commonWidth, commonHeight);
+            
+            // 이미지 B 재조정
+            const tempB = document.createElement('canvas');
+            const tempCtxB = tempB.getContext('2d');
+            tempB.width = widthB;
+            tempB.height = heightB;
+            tempCtxB.putImageData(imageDataB || ctxB.getImageData(0, 0, widthB, heightB), 0, 0);
+            
+            const cropXB = Math.floor((widthB - commonWidth) / 2);
+            const cropYB = Math.floor((heightB - commonHeight) / 2);
+            
+            canvasB.width = commonWidth;
+            canvasB.height = commonHeight;
+            ctxB.drawImage(tempB, cropXB, cropYB, commonWidth, commonHeight, 0, 0, commonWidth, commonHeight);
+            imageDataB = ctxB.getImageData(0, 0, commonWidth, commonHeight);
+        }
+        
+        // 알파 슬라이더
+        slider.addEventListener('input', function() {
+            const alpha = parseFloat(this.value) / 10;
+            document.getElementById('alphaValue').textContent = alpha.toFixed(1);
+            updateBlending();
+        });
+        
+        function updateBlending() {
+            if (!imageDataA || !imageDataB) return;
+            
+            const alpha = parseFloat(slider.value) / 10;
+            
+            canvasBlend.width = commonWidth;
+            canvasBlend.height = commonHeight;
+            
+            const blendData = ctxBlend.createImageData(commonWidth, commonHeight);
+            
+            for (let i = 0; i < imageDataA.data.length; i += 4) {
+                blendData.data[i] = Math.round(imageDataA.data[i] * alpha + imageDataB.data[i] * (1 - alpha));
+                blendData.data[i + 1] = Math.round(imageDataA.data[i + 1] * alpha + imageDataB.data[i + 1] * (1 - alpha));
+                blendData.data[i + 2] = Math.round(imageDataA.data[i + 2] * alpha + imageDataB.data[i + 2] * (1 - alpha));
+                blendData.data[i + 3] = 255;
+            }
+            
+            ctxBlend.putImageData(blendData, 0, 0);
+            
+            document.getElementById('canvasBlend').style.display = 'block';
+            document.getElementById('placeholderBlend').style.display = 'none';
+            document.getElementById('wrapperBlend').classList.remove('empty');
+            
+            if (selectedX !== null && selectedY !== null) {
+                updateMatrix();
+                updateSelectionBoxes();
+            }
+        }
+        
+        // 클릭 이벤트
+        function setupClickEvent(canvas) {
+            canvas.addEventListener('click', function(e) {
+                if (!imageDataA || !imageDataB) return;
+                
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                
+                selectedX = Math.floor((e.clientX - rect.left) * scaleX);
+                selectedY = Math.floor((e.clientY - rect.top) * scaleY);
+                
+                updateMatrix();
+                updateSelectionBoxes();
+            });
+        }
+        
+        setupClickEvent(canvasA);
+        setupClickEvent(canvasB);
+        setupClickEvent(canvasBlend);
+        
+        // 선택 박스 업데이트
+        function updateSelectionBoxes() {
+            if (!imageDataA || !imageDataB || selectedX === null || selectedY === null) return;
+            
+            const startX = Math.max(0, Math.min(commonWidth - boxWidth, selectedX - Math.floor(boxWidth / 2)));
+            const startY = Math.max(0, Math.min(commonHeight - boxHeight, selectedY - Math.floor(boxHeight / 2)));
+            
+            const canvases = [canvasA, canvasBlend, canvasB];
+            const boxes = ['selectionBoxA', 'selectionBoxBlend', 'selectionBoxB'];
+            
+            canvases.forEach((canvas, idx) => {
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = rect.width / canvas.width;
+                const scaleY = rect.height / canvas.height;
+                
+                const box = document.getElementById(boxes[idx]);
+                box.style.display = 'block';
+                box.style.left = (startX * scaleX) + 'px';
+                box.style.top = (startY * scaleY) + 'px';
+                box.style.width = (boxWidth * scaleX) + 'px';
+                box.style.height = (boxHeight * scaleY) + 'px';
+            });
+        }
+        
+        // 행렬 업데이트
+        function updateMatrix() {
+            if (!imageDataA || !imageDataB || selectedX === null || selectedY === null) return;
+            
+            const alpha = parseFloat(slider.value) / 10;
+            const startX = Math.max(0, Math.min(commonWidth - boxWidth, selectedX - Math.floor(boxWidth / 2)));
+            const startY = Math.max(0, Math.min(commonHeight - boxHeight, selectedY - Math.floor(boxHeight / 2)));
+            
+            const centerCol = Math.floor(boxWidth / 2); // 중앙 열 = 1 (0, 1, 2)
+            
+            const channels = ['R', 'G', 'B'];
+            
+            for (let ch = 0; ch < 3; ch++) {
+                let htmlA = '';
+                let htmlB = '';
+                let htmlBlend = '';
+                
+                for (let y = 0; y < boxHeight; y++) {
+                    htmlA += '<tr>';
+                    htmlB += '<tr>';
+                    htmlBlend += '<tr>';
+                    
+                    for (let x = 0; x < boxWidth; x++) {
+                        const pixelX = Math.floor(startX + x);
+                        const pixelY = Math.floor(startY + y);
+                        const index = (pixelY * commonWidth + pixelX) * 4 + ch;
+                        
+                        const valueA = imageDataA.data[index];
+                        const valueB = imageDataB.data[index];
+                        const blendValue = Math.round(valueA * alpha + valueB * (1 - alpha));
+                        
+                        htmlA += `<td>${valueA}</td>`;
+                        htmlB += `<td>${valueB}</td>`;
+                        
+                        // 중앙 열에만 계산식 표시
+                        if (x === centerCol) {
+                            htmlBlend += `<td class="center-cell">${blendValue}=${valueA}×${alpha.toFixed(1)}+${valueB}×${(1-alpha).toFixed(1)}</td>`;
+                        } else {
+                            htmlBlend += `<td>${blendValue}</td>`;
+                        }
+                    }
+                    
+                    htmlA += '</tr>';
+                    htmlB += '</tr>';
+                    htmlBlend += '</tr>';
+                }
+                
+                document.getElementById('matrixA' + channels[ch]).innerHTML = htmlA;
+                document.getElementById('matrixB' + channels[ch]).innerHTML = htmlB;
+                document.getElementById('matrixBlend' + channels[ch]).innerHTML = htmlBlend;
+            }
+        }
+    </script>
+</body>
+</html>
